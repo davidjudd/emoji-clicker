@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <title>Emoji Clicker</title>
+    <link rel="apple-touch-icon" href="icon.png" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #000;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+    <script type="module">
+      const hexToRgb = (hex) => {
+        hex = hex.replace("#", "");
+        if (hex.length === 3)
+          hex = hex
+            .split("")
+            .map((h) => h + h)
+            .join("");
+        const bigint = parseInt(hex, 16);
+        return {
+          r: (bigint >> 16) & 255,
+          g: (bigint >> 8) & 255,
+          b: bigint & 255,
+        };
+      };
+      const rgbToHex = ({ r, g, b }) => {
+        const toHex = (c) => c.toString(16).padStart(2, "0");
+        return "#" + toHex(r) + toHex(g) + toHex(b);
+      };
+      const interpolateColor = (color1, color2, factor) => {
+        const rgb1 = hexToRgb(color1);
+        const rgb2 = hexToRgb(color2);
+        const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * factor);
+        const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * factor);
+        const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * factor);
+        return rgbToHex({ r, g, b });
+      };
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      let canvasWidth = window.innerWidth;
+      let canvasHeight = window.innerHeight;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      window.addEventListener("resize", () => {
+        canvasWidth = window.innerWidth;
+        canvasHeight = window.innerHeight;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+      });
+      const heartEmojis = [
+        "🩷",
+        "❤️",
+        "🧡",
+        "💛",
+        "💚",
+        "🩵",
+        "💙",
+        "💜",
+        "🖤",
+        "🩶",
+        "🤍",
+        "🤎",
+      ];
+      const circleEmojis = [
+        "🔴",
+        "🟠",
+        "🟡",
+        "🟢",
+        "🔵",
+        "🟣",
+        "🟤",
+        "⚫",
+        "⚪",
+      ];
+      const squareEmojis = [
+        "🟥",
+        "🟧",
+        "🟨",
+        "🟩",
+        "🟦",
+        "🟪",
+        "🟫",
+        "⬛",
+        "⬜",
+      ];
+      const vehicleEmojis = [
+        "🏎️",
+        "🚌",
+        "🚎",
+        "🚐",
+        "🚑",
+        "🚒",
+        "🚓",
+        "🚕",
+        "🚗",
+        "🚙",
+        "🚚",
+        "🚛",
+        "🛻",
+        "🚜",
+        "🛵",
+        "🛺",
+      ];
+      const emojiPools = {
+        heart: heartEmojis,
+        circle: circleEmojis,
+        square: squareEmojis,
+        vehicle: vehicleEmojis,
+      };
+      const emojiColorsMapping = {
+        heart: {
+          "🩷": "#FF66CC",
+          "❤️": "#FF0000",
+          "🧡": "#FF8800",
+          "💛": "#FFFF00",
+          "💚": "#00FF00",
+          "🩵": "#66CCFF",
+          "💙": "#0000FF",
+          "💜": "#800080",
+          "🖤": "#000000",
+          "🩶": "#808080",
+          "🤍": "#FFFFFF",
+          "🤎": "#8B4513",
+        },
+        circle: {
+          "🔴": "#FF0000",
+          "🟠": "#FFA500",
+          "🟡": "#FFFF00",
+          "🟢": "#00FF00",
+          "🔵": "#0000FF",
+          "🟣": "#800080",
+          "🟤": "#A52A2A",
+          "⚫": "#000000",
+          "⚪": "#FFFFFF",
+        },
+        square: {
+          "🟥": "#FF0000",
+          "🟧": "#FFA500",
+          "🟨": "#FFFF00",
+          "🟩": "#00FF00",
+          "🟦": "#0000FF",
+          "🟪": "#800080",
+          "🟫": "#A52A2A",
+          "⬛": "#000000",
+          "⬜": "#FFFFFF",
+        },
+        vehicle: {
+          "🏎️": "#FF0000",
+          "🚌": "#FFF200",
+          "🚎": "#0000FF",
+          "🚐": "#FFFFFF",
+          "🚑": "#FFC0CB",
+          "🚒": "#FF0000",
+          "🚓": "#808080",
+          "🚕": "#FFA500",
+          "🚗": "#FF0000",
+          "🚙": "#00CED1",
+          "🚚": "#FF4500",
+          "🚛": "#008000",
+          "🛻": "#008000",
+          "🚜": "#FFFF00",
+          "🛵": "#FFFF00",
+          "🛺": "#ADFF2F",
+        },
+      };
+      let currentMainType = "heart";
+      class FloatingEmoji {
+        constructor(emoji, canvasWidth, canvasHeight, type = "heart") {
+          this.emoji = emoji;
+          this.type = type;
+          this.depth = Math.random() * 0.3 + 0.7;
+          this.baseX = Math.random() * canvasWidth;
+          this.y = canvasHeight + 50;
+          this.speed = Math.random() * 30 + 20;
+          this.amplitude = Math.random() * 20 + 10;
+          this.frequency = Math.random() * 2 + 1;
+          this.phase = Math.random() * Math.PI * 2;
+          this.fontSize = 40 * this.depth;
+          this.time = 0;
+        }
+        update(dt) {
+          this.y -= this.speed * dt;
+          this.time += dt;
+        }
+        draw(ctx) {
+          ctx.font = `${this.fontSize}px sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          const x =
+            this.baseX +
+            this.amplitude * Math.sin(this.frequency * this.time + this.phase);
+          ctx.fillText(this.emoji, x, this.y);
+        }
+        containsPoint(x, y, ctx) {
+          ctx.font = `${this.fontSize}px sans-serif`;
+          const radius = this.fontSize / 2;
+          const emojiX =
+            this.baseX +
+            this.amplitude * Math.sin(this.frequency * this.time + this.phase);
+          const dx = x - emojiX;
+          const dy = y - this.y;
+          return dx * dx + dy * dy <= radius * radius;
+        }
+      }
+      class TapEffect {
+        constructor(x, y, color) {
+          this.x = x;
+          this.y = y;
+          this.color = color;
+          this.startTime = performance.now();
+          this.duration = 1000;
+        }
+        draw(ctx, currentTime) {
+          let elapsed = currentTime - this.startTime;
+          if (elapsed < 0) elapsed = 0;
+          if (elapsed > this.duration) return false;
+          const progress = elapsed / this.duration;
+          const maxRadius = Math.hypot(canvasWidth, canvasHeight);
+          const radius = progress * maxRadius;
+          ctx.save();
+          ctx.globalAlpha = 1 - progress;
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          return true;
+        }
+      }
+      const emojis = [];
+      let lastSpawnTime = performance.now();
+      let spawnInterval = 2000;
+      const tapEffects = [];
+      const currentBackground = "#000000";
+      let lastFrameTime = performance.now();
+      const gameLoop = (timestamp) => {
+        const dt = (timestamp - lastFrameTime) / 1000;
+        lastFrameTime = timestamp;
+        ctx.fillStyle = currentBackground;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        if (timestamp - lastSpawnTime > spawnInterval) {
+          let poolType =
+            Math.random() < 0.9
+              ? currentMainType
+              : Object.keys(emojiPools).filter((t) => t !== currentMainType)[
+                  Math.floor(
+                    Math.random() * (Object.keys(emojiPools).length - 1)
+                  )
+                ];
+          const pool = emojiPools[poolType];
+          const emoji = pool[Math.floor(Math.random() * pool.length)];
+          emojis.push(
+            new FloatingEmoji(emoji, canvasWidth, canvasHeight, poolType)
+          );
+          lastSpawnTime = timestamp;
+          spawnInterval = 1500 + Math.random() * 1000;
+        }
+        for (let i = emojis.length - 1; i >= 0; i--) {
+          emojis[i].update(dt);
+          if (emojis[i].y < -50) emojis.splice(i, 1);
+        }
+        emojis.sort((a, b) => a.depth - b.depth);
+        emojis.forEach((emoji) => emoji.draw(ctx));
+        for (let i = tapEffects.length - 1; i >= 0; i--) {
+          if (!tapEffects[i].draw(ctx, timestamp)) tapEffects.splice(i, 1);
+        }
+        requestAnimationFrame(gameLoop);
+      };
+      requestAnimationFrame(gameLoop);
+      canvas.addEventListener("pointerdown", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        for (let i = emojis.length - 1; i >= 0; i--) {
+          if (emojis[i].containsPoint(x, y, ctx)) {
+            const tappedEmoji = emojis[i];
+            emojis.splice(i, 1);
+            const mapping = emojiColorsMapping[tappedEmoji.type];
+            const color = mapping[tappedEmoji.emoji] || "#FFFFFF";
+            tapEffects.push(new TapEffect(x, y, color));
+            if (tappedEmoji.type !== currentMainType)
+              currentMainType = tappedEmoji.type;
+            break;
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
