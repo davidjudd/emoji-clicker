@@ -23,6 +23,11 @@
       }
       canvas {
         display: block;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        touch-action: manipulation;
       }
     </style>
   </head>
@@ -66,6 +71,9 @@
         canvasHeight = window.innerHeight;
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
+      });
+      canvas.addEventListener("touchmove", (e) => e.preventDefault(), {
+        passive: false,
       });
       const heartEmojis = [
         "🩷",
@@ -195,7 +203,7 @@
           this.amplitude = Math.random() * 20 + 10;
           this.frequency = Math.random() * 2 + 1;
           this.phase = Math.random() * Math.PI * 2;
-          this.fontSize = 40 * this.depth;
+          this.fontSize = 80 * this.depth;
           this.time = 0;
         }
         update(dt) {
